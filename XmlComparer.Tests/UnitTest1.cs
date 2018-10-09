@@ -61,113 +61,109 @@ namespace XmlComparer.Tests
 
             inputXml.Should().BeEquivalentTo(expectedXml);
         }
-
-        public class IntegrationTests
+        
+        [Test]
+        public void ProcessXml_FindReplace_ReplacesText()
         {
-            [Test]
-            public void XmlComparerCanLoadControlXmlDocument()
-            {
-                var pathToFolder = Path.Combine(TestContext.CurrentContext.TestDirectory, "TestXmls");
-                var getXmlsFromFolder = new GetXmlsFromFolder(pathToFolder);
+            var preAlterationXmlString = $@"<?xml version='1.0' encoding='utf-8' ?><RootNode><SomeNode>I will be replaced</SomeNode></RootNode>";
+            var expectedXmlString = $@"<?xml version='1.0' encoding='utf-8' ?><RootNode><SomeNode>I am replaced</SomeNode></RootNode>";
+            var inputXml = XmlDoc.LoadFromString(preAlterationXmlString);
+            var expectedXml = XmlDoc.LoadFromString(expectedXmlString);
 
-                var xmlComparer = new XmlCompare(getXmlsFromFolder, getXmlsFromFolder);
+            var removeXPath = new FindAndReplaceXml("I will be replaced", "I am replaced");
+            inputXml = removeXPath.Alter(inputXml);
 
-                xmlComparer.ProcessAlterations("TestFileForLoadAndProcess");
-
-                var expectedXmlDocument = GetTestXmlDocument("TestXmls/TestFileForLoadAndProcess.xml");
-
-                var actualXmlDocument = xmlComparer.GetControlXmlDocuments().First();
-                actualXmlDocument.Should().BeEquivalentTo(expectedXmlDocument);
-            }
-
-            [Test]
-            public void XmlComparerCanLoadTargetXmlDocument()
-            {
-                var pathToFolder = Path.Combine(TestContext.CurrentContext.TestDirectory, "TestXmls");
-                var getXmlsFromFolder = new GetXmlsFromFolder(pathToFolder);
-
-                var xmlComparer = new XmlCompare(getXmlsFromFolder, getXmlsFromFolder);
-
-                xmlComparer.ProcessAlterations("TestFileForLoadAndProcess");
-
-                var expectedXmlDocument = GetTestXmlDocument("TestXmls/TestFileForLoadAndProcess.xml");
-
-                var actualXmlDocument = xmlComparer.GetTargetXmlDocuments().First();
-                actualXmlDocument.Should().BeEquivalentTo(expectedXmlDocument);
-            }
-
-            [Test]
-            public void XmlComparerCanRunAlterationsOnBothXmlDocuments()
-            {
-                var pathToFolder = Path.Combine(TestContext.CurrentContext.TestDirectory, "TestXmls");
-                var getXmlsFromFolder = new GetXmlsFromFolder(pathToFolder);
-
-                var xmlComparer = new XmlCompare(getXmlsFromFolder, getXmlsFromFolder);
-                xmlComparer.AddJointAlteration(new RemoveXPathFromXml("//IShouldBeRemoved"));
-                xmlComparer.ProcessAlterations("TestFileForLoadAndProcess");
-
-                var expectedXmlDocument = GetTestXmlDocument("TestXmls/TestFileForLoadAndProcessExpected.xml");
-
-                var controlXmlDocument = xmlComparer.GetControlXmlDocuments().First();
-                controlXmlDocument.Should().BeEquivalentTo(expectedXmlDocument);
-
-                var targetXmlDocument = xmlComparer.GetTargetXmlDocuments().First();
-                targetXmlDocument.Should().BeEquivalentTo(expectedXmlDocument);
-            }
-
-            [Test]
-            public void XmlComparerCanRunAlterationsOnlyOnControlXmlDocuments()
-            {
-                var pathToFolder = Path.Combine(TestContext.CurrentContext.TestDirectory, "TestXmls");
-                var getXmlsFromFolder = new GetXmlsFromFolder(pathToFolder);
-
-                var xmlComparer = new XmlCompare(getXmlsFromFolder, getXmlsFromFolder);
-                xmlComparer.AddControlAlteration(new RemoveXPathFromXml("//IShouldBeRemoved"));
-                xmlComparer.ProcessAlterations("TestFileForLoadAndProcess");
-
-                var changedXmlDocument = GetTestXmlDocument("TestXmls/TestFileForLoadAndProcessExpected.xml");
-                var originalXmlDocument = GetTestXmlDocument("TestXmls/TestFileForLoadAndProcess.xml");
-
-                var controlXmlDocument = xmlComparer.GetControlXmlDocuments().First();
-                controlXmlDocument.Should().BeEquivalentTo(changedXmlDocument);
-
-                var targetXmlDocument = xmlComparer.GetTargetXmlDocuments().First();
-                targetXmlDocument.Should().BeEquivalentTo(originalXmlDocument);
-            }
-
-            [Test]
-            public void XmlComparerCanRunAlterationsOnlyOnTargetXmlDocuments()
-            {
-                var pathToFolder = Path.Combine(TestContext.CurrentContext.TestDirectory, "TestXmls");
-                var getXmlsFromFolder = new GetXmlsFromFolder(pathToFolder);
-
-                var xmlComparer = new XmlCompare(getXmlsFromFolder, getXmlsFromFolder);
-                xmlComparer.AddTargetAlteration(new RemoveXPathFromXml("//IShouldBeRemoved"));
-                xmlComparer.ProcessAlterations("TestFileForLoadAndProcess");
-
-                var changedXmlDocument = GetTestXmlDocument("TestXmls/TestFileForLoadAndProcessExpected.xml");
-                var originalXmlDocument = GetTestXmlDocument("TestXmls/TestFileForLoadAndProcess.xml");
-
-                var controlXmlDocument = xmlComparer.GetControlXmlDocuments().First();
-                controlXmlDocument.Should().BeEquivalentTo(originalXmlDocument);
-
-                var targetXmlDocument = xmlComparer.GetTargetXmlDocuments().First();
-                targetXmlDocument.Should().BeEquivalentTo(changedXmlDocument);
-            }
+            inputXml.Should().BeEquivalentTo(expectedXml);
         }
-
-        public static XmlDocument GetTestXmlDocument(string filePath)
+       
+        [Test]
+        public void ProcessXml_ReorderNodes_Reorders()
         {
-            var xmlDocument = new XmlDocument();
-            xmlDocument.Load(Path.Combine(TestContext.CurrentContext.TestDirectory, filePath));
-            return xmlDocument;
+            var preAlterationXmlString = $@"<?xml version='1.0' encoding='utf-8' ?><RootNode><Order>B</Order><Order>C</Order><Order>A</Order></RootNode>";
+            var expectedXmlString = $@"<?xml version='1.0' encoding='utf-8' ?><RootNode><Order>A</Order><Order>B</Order><Order>C</Order></RootNode>";
+            var inputXml = XmlDoc.LoadFromString(preAlterationXmlString);
+            var expectedXml = XmlDoc.LoadFromString(expectedXmlString);
+
+            var removeXPath = new ReorderNodesAlphabetically("//RootNode", "Order");
+            inputXml = removeXPath.Alter(inputXml);
+
+            inputXml.Should().BeEquivalentTo(expectedXml);
         }
     }
 
-    public class XmlCompare : IXmlComparer
+    public class ReorderNodesAlphabetically : IAlterXml
     {
-        private readonly IGetXmls getControlXmls;
-        private readonly IGetXmls getTargetXmls;
+        private readonly string _baseXPath;
+        private readonly string _childNodesXPath;
+
+        public ReorderNodesAlphabetically(string baseXPath, string childNodesXPath)
+        {
+            _baseXPath = baseXPath;
+            _childNodesXPath = childNodesXPath;
+        }
+
+        public XmlDocument Alter(XmlDocument xml)
+        {
+            var baseNodes = xml.SelectNodes(_baseXPath);
+
+            foreach (XmlNode baseNode in baseNodes)
+            {
+                var childNodes = baseNode.SelectNodes(_childNodesXPath);
+
+                var allNodes = new List<XmlNode>();
+
+                foreach (XmlNode node in childNodes)
+                {
+                    allNodes.Add(node);
+                }
+
+                var sortedList = allNodes.OrderBy(s => s.InnerText);
+
+                foreach (XmlNode node in childNodes)
+                {
+                    baseNode.RemoveChild(node);
+                }
+
+                foreach (XmlNode node in sortedList)
+                {
+                    baseNode.AppendChild(node);
+                }
+            }
+
+            return xml;
+        }
+
+        public string GetDescriptionForReport()
+        {
+            return $"Reorder {_baseXPath} && {_childNodesXPath} selection alphabetically";
+        }
+    }
+
+    public class XmlGetter : IXmlGetter
+    {
+        private readonly IGetXmls getControl;
+        private readonly IGetXmls getTarget;
+
+        public XmlGetter(IGetXmls getControl, IGetXmls getTarget)
+        {
+            this.getControl = getControl;
+            this.getTarget = getTarget;
+        }
+
+        public XmlDocument GetControl(string id)
+        {
+            return this.getControl.GetXml(id);
+        }
+
+        public XmlDocument GetTarget(string id)
+        {
+            return this.getTarget.GetXml(id);
+        }
+    }
+
+    public class XmlAlterater : IXmlComparer
+    {
+        private readonly IXmlGetter xmlGetter;
         private List<IAlterXml> joinXmlAlterations;
         private List<IAlterXml> controlOnlyAlterations;
         private List<IAlterXml> targetOnlyAlterations;
@@ -175,10 +171,9 @@ namespace XmlComparer.Tests
         private List<XmlDocument> controlXmlDocuments;
         private List<XmlDocument> targetXmlDocuments;
 
-        public XmlCompare(IGetXmls getControlXmls, IGetXmls getTargetXmls)
+        public XmlAlterater(IXmlGetter xmlGetter)
         {
-            this.getControlXmls = getControlXmls;
-            this.getTargetXmls = getTargetXmls;
+            this.xmlGetter = xmlGetter;
             this.joinXmlAlterations = new List<IAlterXml>();
             this.controlOnlyAlterations = new List<IAlterXml>();
             this.targetOnlyAlterations = new List<IAlterXml>();
@@ -186,19 +181,19 @@ namespace XmlComparer.Tests
             this.targetXmlDocuments = new List<XmlDocument>();
         }
 
-        public XmlCompare AddJointAlteration(IAlterXml alterXml)
+        public XmlAlterater AddJointAlteration(IAlterXml alterXml)
         {
             this.joinXmlAlterations.Add(alterXml);
             return this;
         }
 
-        public XmlCompare AddControlAlteration(IAlterXml alterXml)
+        public XmlAlterater AddControlAlteration(IAlterXml alterXml)
         {
             this.controlOnlyAlterations.Add(alterXml);
             return this;
         }
 
-        public XmlCompare AddTargetAlteration(IAlterXml alterXml)
+        public XmlAlterater AddTargetAlteration(IAlterXml alterXml)
         {
             this.targetOnlyAlterations.Add(alterXml);
             return this;
@@ -206,8 +201,8 @@ namespace XmlComparer.Tests
 
         public void ProcessAlterations(string id)
         {
-            var controlXmlDocument = this.getControlXmls.GetXml(id);
-            var targetXmlDocument = this.getTargetXmls.GetXml(id);
+            var controlXmlDocument = this.xmlGetter.GetControl(id);
+            var targetXmlDocument = this.xmlGetter.GetTarget(id);
 
             foreach (var xmlAlteration in joinXmlAlterations.Union(controlOnlyAlterations))
             {
